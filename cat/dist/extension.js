@@ -64,7 +64,15 @@ function activate(context) {
     context.subscriptions.push(disposable);
 }
 async function explainCodeInMarkdown(context) {
-    const [model] = await vscode.lm.selectChatModels({ family: 'gpt-4' });
+    console.log("hello");
+    const available = await vscode.lm.selectChatModels({});
+    available.forEach(m => {
+        console.log(`VENDOR: ${m.vendor} | FAMILY: ${m.family} | VERSION: ${m.version} | ID: ${m.id}`);
+    });
+    const config = vscode.workspace.getConfiguration('inlineChat');
+    const defaultModel = config.get('defaultModel');
+    console.log(defaultModel);
+    const [model] = await vscode.lm.selectChatModels(available[4]);
     if (model) {
         const promtmessage = [
             vscode.LanguageModelChatMessage.User(`Analyze the following code and explain it shortly and compactly
@@ -72,16 +80,31 @@ async function explainCodeInMarkdown(context) {
 				 devide it with lines between each step and make sure that i could easily make a screenshot of each step and make it into a powerpoint dont put anything else than the markdown content and make sure to use code blocks with the right language tag for the code snippets
 				 :\n\n${context}`)
         ];
-        const response = await model.sendRequest(promtmessage);
-        if (response) {
-            return response.text.toString();
+        try {
+            const response = await model.sendRequest(promtmessage);
+            if (response) {
+                let fullText = '';
+                // You must iterate through the fragments because .text is a stream
+                for await (const fragment of response.text) {
+                    fullText += fragment;
+                }
+                return fullText; // Now you have the complete string
+            }
+            else {
+                return "Sorry, I couldn't generate an explanation for the selected code.";
+            }
         }
-        else {
-            return "Sorry, I couldn't generate an explanation for the selected code.";
+        catch (err) {
+            if (err instanceof vscode.LanguageModelError) {
+                if (err.code === 'QuotaExceeded') { // This is the "Empty Tokens" check
+                    return "### ⚠️ Subscription Limit Reached\nYou have run out of Copilot tokens for now. Please check your plan.";
+                }
+            }
+            return "### ❌ Error\nAn unexpected error occurred.";
         }
     }
     else {
-        return "Sorry, I couldn't find a suitable language model to generate the explanation.";
+        return `Sorry, I couldn't find a suitable language model to generate the explanation. ${defaultModel}`;
     }
 }
 async function showExplanationMarkdown(context) {

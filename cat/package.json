@@ -25,6 +25,16 @@
           "group": "navigation"
         }
       ]
+    },
+    "configuration":{
+      "title": "Settings",
+      "properties": {
+        "inlineChat.defaultModel": {
+          "type": "string",
+          "default": "claude-haiku-4.5",
+          "description": "the default model for the markdown processing"
+        }
+      }
     }
   },
   "scripts": {
