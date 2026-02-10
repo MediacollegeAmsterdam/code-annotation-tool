@@ -5,25 +5,25 @@ import * as vscode from 'vscode';
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    console.log('Extension "cat" is now active!');
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "cat" is now active!');
+    // Register the command
+    const disposable = vscode.commands.registerCommand('cat.explainCode', async () => {
+        // Logic inside here runs EVERY time the command is triggered
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+            const selection = editor.selection;
+            const selectedText = editor.document.getText(selection);
+            
+            if (selectedText) {
+                await showExplanationMarkdown(selectedText);
+            } else {
+                vscode.window.showInformationMessage("Please select some code first!");
+            }
+        }
+    });
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const editor = vscode.window.activeTextEditor;
-	if (editor) {
-		const selection = editor.selection;
-		const selectedText = editor.document.getText(selection);
-		showExplanationMarkdown(selectedText);
-	}
-
-	const disposable = vscode.commands.registerCommand('cat.explainCode', async () => {
-
-	});
-	context.subscriptions.push(disposable);
+    context.subscriptions.push(disposable);
 }
 
 async function explainCodeInMarkdown(context: string): Promise<string> {
