@@ -79,7 +79,8 @@ async function explainCodeInMarkdown(context) {
         const promtmessage = [
             vscode.LanguageModelChatMessage.User(`Analyze the following code and explain it shortly and compactly step by step. please do put some text in the explanation and make sure to make it readable to beginning programmers. also, make sure to
 				  make it into in markdown format with code blocks that have the right language tag so the colors are right too.
-				 devide it with lines between each step and make sure that i could easily make a screenshot of each step and make it into a powerpoint dont put anything else than the markdown content and make sure to use code blocks with the right language tag for the code snippets
+				 devide it with lines between each step and make sure that i could easily make a screenshot of each step and make it into a powerpoint dont put anything else than the markdown content and make sure to use code blocks with the right language tag for the code snippets.
+				 also make sure there arent any empty code blocks and that all code blocks have the right language tag for the code inside and that they wont show the 
 				 :\n\n${context}`)
         ];
         try {
