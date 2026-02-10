@@ -15,7 +15,7 @@
     "commands": [
       {
         "command": "cat.explainCode",
-        "title": "Explain Code in Webview"
+        "title": "Explain Code in markdown preview"
       }
     ],
     "menus": {
