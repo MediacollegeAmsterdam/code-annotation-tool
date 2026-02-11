@@ -3,6 +3,11 @@
   "displayName": "CAT",
   "description": "an extension that shows a webview with ai explanation of highlighted code with the click of a button",
   "version": "0.0.1",
+  "publisher": "XRlabAI",
+  "repository": {
+    "url": "https://github.com/MediacollegeAmsterdam/code-annotation-tool"
+  },
+  "icon": "catpfp.png",
   "engines": {
     "vscode": "^1.109.0"
   },
@@ -22,19 +27,10 @@
       "editor/context": [
         {
           "command": "cat.explainCode",
-          "group": "navigation"
+          "group": "navigation",
+          "when": "editorHasSelection"
         }
       ]
-    },
-    "configuration":{
-      "title": "Settings",
-      "properties": {
-        "inlineChat.defaultModel": {
-          "type": "string",
-          "default": "claude-haiku-4.5",
-          "description": "the default model for the markdown processing"
-        }
-      }
     }
   },
   "scripts": {
@@ -52,12 +48,14 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/vscode": "^1.109.0",
+    "@vitejs/plugin-react": "^5.1.4",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.2",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
+    "vite": "^7.3.1",
     "webpack": "^5.104.1",
     "webpack-cli": "^6.0.1"
   },

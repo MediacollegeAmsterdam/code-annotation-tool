@@ -41,13 +41,25 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.activate = activate;
 exports.deactivate = deactivate;
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-const vscode = __importStar(__webpack_require__(1));
+const path = __importStar(__webpack_require__(1));
+const fs = __importStar(__webpack_require__(2));
+const vscode = __importStar(__webpack_require__(3));
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 function activate(context) {
     console.log('Extension "cat" is now active!');
+    const panel = vscode.window.createWebviewPanel('test', 'Test', vscode.ViewColumn.One, {
+        enableScripts: true,
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist')]
+    });
+    const htmlPath = path.join(context.extensionUri.fsPath, 'webview', 'dist', 'index.html');
+    let html = fs.readFileSync(htmlPath, 'utf-8');
+    // Replace /assets/filename.js with proper webview URI
+    html = html.replace(/src="\/assets\/([^"]+)"/g, (match, filename) => {
+        const fileUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist', 'assets', filename));
+        return `src="${fileUri}"`;
+    });
+    panel.webview.html = html;
     // Register the command
     const disposable = vscode.commands.registerCommand('cat.explainCode', async () => {
         // Logic inside here runs EVERY time the command is triggered
@@ -98,9 +110,9 @@ async function explainCodeInMarkdown(context) {
                 return "Sorry, I couldn't generate an explanation for the selected code.";
             }
         }
-        catch (err) {
-            if (err instanceof vscode.LanguageModelError) {
-                if (err.code === 'QuotaExceeded') { // This is the "Empty Tokens" check
+        catch (error) {
+            if (error instanceof vscode.LanguageModelError) {
+                if (error.code === 'QuotaExceeded') {
                     return "### ⚠️ Subscription Limit Reached\nYou have run out of Copilot tokens for now. Please check your plan.";
                 }
             }
@@ -113,7 +125,23 @@ async function explainCodeInMarkdown(context) {
 }
 async function showExplanationMarkdown(context) {
     const markdownContent = await explainCodeInMarkdown(context);
-    const uri = vscode.Uri.parse(`untitled:explanation.md`);
+    // 1. Create a webview panel (like opening a new tab in VS Code)
+    const panel = vscode.window.createWebviewPanel('codeExplanation', // Internal ID
+    'Code Explanation', // Tab title
+    vscode.ViewColumn.Beside, // Show it next to current editor
+    {
+        enableScripts: true, // Allow JavaScript to run
+        retainContextWhenHidden: true // Keep state when hidden
+    });
+    let filename = await vscode.window.showInputBox({
+        prompt: "Enter a filename for the explanation",
+        value: "explanation.md"
+    });
+    if (!filename) {
+        vscode.window.showErrorMessage("No filename was provided.");
+        return;
+    }
+    const uri = vscode.Uri.parse(`untitled:${filename}`);
     const doc = await vscode.workspace.openTextDocument(uri);
     const edit = new vscode.WorkspaceEdit();
     edit.insert(uri, new vscode.Position(0, 0), markdownContent);
@@ -127,6 +155,18 @@ function deactivate() { }
 
 /***/ }),
 /* 1 */
+/***/ ((module) => {
+
+module.exports = require("path");
+
+/***/ }),
+/* 2 */
+/***/ ((module) => {
+
+module.exports = require("fs");
+
+/***/ }),
+/* 3 */
 /***/ ((module) => {
 
 module.exports = require("vscode");
