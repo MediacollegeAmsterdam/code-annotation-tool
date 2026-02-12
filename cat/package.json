@@ -2,12 +2,13 @@
   "name": "cat",
   "displayName": "CAT",
   "description": "an extension that shows a webview with ai explanation of highlighted code with the click of a button",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "XRlabAI",
   "repository": {
     "url": "https://github.com/MediacollegeAmsterdam/code-annotation-tool"
   },
-  "icon": "catpfp.png",
+  "icon": "catpfp.jpg",
+  
   "engines": {
     "vscode": "^1.109.0"
   },

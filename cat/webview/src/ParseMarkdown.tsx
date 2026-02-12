@@ -22,6 +22,11 @@ export function parseMarkdown(markdown: string): {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
+    // Skip --- separator lines
+    if (line.trim() === '---') {
+      continue;
+    }
+    
     // Check for code block fence
     if (line.trim().startsWith('```')) {
       if (inCodeBlock) {

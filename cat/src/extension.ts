@@ -1,3 +1,4 @@
+"use client";
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import { error } from 'console';
@@ -7,33 +8,9 @@ import * as vscode from 'vscode';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Extension "cat" is now active!');
-	const panel = vscode.window.createWebviewPanel(
-      'test',
-      'Test',
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist')]
-      }
-    );
-
-    const htmlPath = path.join(context.extensionUri.fsPath, 'webview', 'dist', 'index.html');
-    let html = fs.readFileSync(htmlPath, 'utf-8');
-    
-    // Replace /assets/filename.js with proper webview URI
-    html = html.replace(
-      /src="\/assets\/([^"]+)"/g,
-      (match, filename) => {
-        const fileUri = panel.webview.asWebviewUri(
-          vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist', 'assets', filename)
-        );
-        return `src="${fileUri}"`;
-      }
-    );
-    
-    panel.webview.html = html;
 	// Register the command
 	const disposable = vscode.commands.registerCommand('cat.explainCode', async () => {
 		// Logic inside here runs EVERY time the command is triggered
@@ -43,7 +20,7 @@ export function activate(context: vscode.ExtensionContext) {
 			const selectedText = editor.document.getText(selection);
 
 			if (selectedText) {
-				await showExplanationMarkdown(selectedText);
+				await showExplanationMarkdown(context, selectedText);
 			} else {
 				vscode.window.showInformationMessage("Please select some code first!");
 			}
@@ -91,43 +68,64 @@ async function explainCodeInMarkdown(context: string): Promise<string> {
 					return "### ⚠️ Subscription Limit Reached\nYou have run out of Copilot tokens for now. Please check your plan.";
 				}
 			}
-			return "### ❌ Error\nAn unexpected error occurred.";
+			return "\n### step 1\n```javascript\nconsole.log('hello world');\n```\n\n### step 2\n```python\ndef greet():\n    print('Hello, World!')\n```";
 		}
 	} else {
-		return `Sorry, I couldn't find a suitable language model to generate the explanation. ${defaultModel}`;
+		return `Sorry, I couldn't find a suitable language model to generate the explanation.`;
 	}
 }
-async function showExplanationMarkdown(context: string) {
-	const markdownContent = await explainCodeInMarkdown(context);
-	// 1. Create a webview panel (like opening a new tab in VS Code)
+async function showExplanationMarkdown(context: vscode.ExtensionContext, selectedText: string) {
+  const markdownContent = await explainCodeInMarkdown(selectedText);
+  
+  // Create ONE webview panel
   const panel = vscode.window.createWebviewPanel(
-    'codeExplanation',        // Internal ID
-    'Code Explanation',        // Tab title
-    vscode.ViewColumn.Beside,  // Show it next to current editor
+    'codeExplanation',
+    'Code Explanation',
+    vscode.ViewColumn.Active,
     {
-      enableScripts: true,     // Allow JavaScript to run
-      retainContextWhenHidden: true // Keep state when hidden
+      enableScripts: true,
+      retainContextWhenHidden: true,
+      localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist')]
     }
- );
+  );
 
-	let filename = await vscode.window.showInputBox({
-		prompt: "Enter a filename for the explanation",
-		value: "explanation.md"
-	});
-	if (!filename) {
-		vscode.window.showErrorMessage("No filename was provided.");
-		return;
-	}
-	const uri = vscode.Uri.parse(`untitled:${filename}`)
+  // Load the React app HTML
+  const htmlPath = path.join(context.extensionUri.fsPath, 'webview', 'dist', 'index.html');
+  let html = fs.readFileSync(htmlPath, 'utf-8');
+  
+  html = html.replace(
+    /src="\/assets\/([^"]+)"/g,
+    (match, filename) => {
+      const fileUri = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist', 'assets', filename)
+      );
+      return `src="${fileUri}"`;
+    }
+  );
+  
+  // Inject markdown into the HTML
+  html = html.replace(
+    '</body>',
+    `<script>window.markdownContent = ${JSON.stringify(markdownContent)};</script></body>`
+  );
+  
+  panel.webview.html = html;
 
-	const doc = await vscode.workspace.openTextDocument(uri);
-	const edit = new vscode.WorkspaceEdit();
-
-	edit.insert(uri, new vscode.Position(0, 0), markdownContent)
-	await vscode.workspace.applyEdit(edit);
-
-	await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Beside });
-	await vscode.commands.executeCommand('markdown.showPreview', uri)
+  /*// Optional: Also create the markdown preview
+  let filename = await vscode.window.showInputBox({
+    prompt: "Enter a filename for the explanation",
+    value: "explanation.md"
+  });
+  
+  if (filename) {
+    const uri = vscode.Uri.parse(`untitled:${filename}`);
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const edit = new vscode.WorkspaceEdit();
+    edit.insert(uri, new vscode.Position(0, 0), markdownContent);
+    await vscode.workspace.applyEdit(edit);
+    await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Two });
+    await vscode.commands.executeCommand('markdown.showPreview', uri);
+  }*/
 }
 // This method is called when your extension is deactivated
 export function deactivate() { }
