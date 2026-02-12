@@ -2,13 +2,14 @@
   "name": "cat",
   "displayName": "CAT",
   "description": "an extension that shows a webview with ai explanation of highlighted code with the click of a button",
-  "version": "0.1.0",
+  "version": "0.1.2",
+  "author": "julien oving",
   "publisher": "XRlabAI",
   "repository": {
     "url": "https://github.com/MediacollegeAmsterdam/code-annotation-tool"
   },
   "icon": "catpfp.jpg",
-  
+
   "engines": {
     "vscode": "^1.109.0"
   },
@@ -21,7 +22,7 @@
     "commands": [
       {
         "command": "cat.explainCode",
-        "title": "Explain Code in markdown preview"
+        "title": "Explain Code in a chart"
       }
     ],
     "menus": {

@@ -20,7 +20,13 @@ export function activate(context: vscode.ExtensionContext) {
 			const selectedText = editor.document.getText(selection);
 
 			if (selectedText) {
-				await showExplanationMarkdown(context, selectedText);
+				await vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: "Generating Visual Explanation",
+					cancellable: false
+				}, async (progress) => {
+					await showExplanationMarkdown(context, selectedText);
+				});
 			} else {
 				vscode.window.showInformationMessage("Please select some code first!");
 			}
@@ -75,57 +81,57 @@ async function explainCodeInMarkdown(context: string): Promise<string> {
 	}
 }
 async function showExplanationMarkdown(context: vscode.ExtensionContext, selectedText: string) {
-  const markdownContent = await explainCodeInMarkdown(selectedText);
-  
-  // Create ONE webview panel
-  const panel = vscode.window.createWebviewPanel(
-    'codeExplanation',
-    'Code Explanation',
-    vscode.ViewColumn.Active,
-    {
-      enableScripts: true,
-      retainContextWhenHidden: true,
-      localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist')]
-    }
-  );
+	const markdownContent = await explainCodeInMarkdown(selectedText);
 
-  // Load the React app HTML
-  const htmlPath = path.join(context.extensionUri.fsPath, 'webview', 'dist', 'index.html');
-  let html = fs.readFileSync(htmlPath, 'utf-8');
-  
-  html = html.replace(
-    /src="\/assets\/([^"]+)"/g,
-    (match, filename) => {
-      const fileUri = panel.webview.asWebviewUri(
-        vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist', 'assets', filename)
-      );
-      return `src="${fileUri}"`;
-    }
-  );
-  
-  // Inject markdown into the HTML
-  html = html.replace(
-    '</body>',
-    `<script>window.markdownContent = ${JSON.stringify(markdownContent)};</script></body>`
-  );
-  
-  panel.webview.html = html;
+	// Create ONE webview panel
+	const panel = vscode.window.createWebviewPanel(
+		'codeExplanation',
+		'Code Explanation',
+		vscode.ViewColumn.Active,
+		{
+			enableScripts: true,
+			retainContextWhenHidden: true,
+			localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist')]
+		}
+	);
 
-  /*// Optional: Also create the markdown preview
-  let filename = await vscode.window.showInputBox({
-    prompt: "Enter a filename for the explanation",
-    value: "explanation.md"
-  });
-  
-  if (filename) {
-    const uri = vscode.Uri.parse(`untitled:${filename}`);
-    const doc = await vscode.workspace.openTextDocument(uri);
-    const edit = new vscode.WorkspaceEdit();
-    edit.insert(uri, new vscode.Position(0, 0), markdownContent);
-    await vscode.workspace.applyEdit(edit);
-    await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Two });
-    await vscode.commands.executeCommand('markdown.showPreview', uri);
-  }*/
+	// Load the React app HTML
+	const htmlPath = path.join(context.extensionUri.fsPath, 'webview', 'dist', 'index.html');
+	let html = fs.readFileSync(htmlPath, 'utf-8');
+
+	html = html.replace(
+		/src="\/assets\/([^"]+)"/g,
+		(match, filename) => {
+			const fileUri = panel.webview.asWebviewUri(
+				vscode.Uri.joinPath(context.extensionUri, 'webview', 'dist', 'assets', filename)
+			);
+			return `src="${fileUri}"`;
+		}
+	);
+
+	// Inject markdown into the HTML
+	html = html.replace(
+		'</body>',
+		`<script>window.markdownContent = ${JSON.stringify(markdownContent)};</script></body>`
+	);
+
+	panel.webview.html = html;
+
+	/*// Optional: Also create the markdown preview
+	let filename = await vscode.window.showInputBox({
+	  prompt: "Enter a filename for the explanation",
+	  value: "explanation.md"
+	});
+    
+	if (filename) {
+	  const uri = vscode.Uri.parse(`untitled:${filename}`);
+	  const doc = await vscode.workspace.openTextDocument(uri);
+	  const edit = new vscode.WorkspaceEdit();
+	  edit.insert(uri, new vscode.Position(0, 0), markdownContent);
+	  await vscode.workspace.applyEdit(edit);
+	  await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Two });
+	  await vscode.commands.executeCommand('markdown.showPreview', uri);
+	}*/
 }
 // This method is called when your extension is deactivated
 export function deactivate() { }
