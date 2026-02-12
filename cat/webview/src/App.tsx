@@ -63,8 +63,8 @@ function App() {
             label={text}
             id={`box${index}`}
             color={highlightColors[index % highlightColors.length]}
-            topoffset={index * 100} // Stagger the boxes vertically
-            leftoffset={400} // Stagger the boxes horizontally
+            topoffset={index * 280} // Stagger the boxes vertically
+            leftoffset={1000} // Stagger the boxes horizontally
           />
         ))}
 
@@ -87,7 +87,6 @@ function App() {
                 style={{
                   backgroundColor: highlightColors[index % highlightColors.length],
                   padding: '2px 4px',
-                  borderRadius: '3px',
                   WebkitBoxDecorationBreak: 'clone',
                   boxDecorationBreak: 'clone',
                   display: 'inline-block', // Helps Xarrow find the center more reliably
