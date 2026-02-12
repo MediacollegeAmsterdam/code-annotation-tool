@@ -2,154 +2,251 @@
 
 import React, { useState, useEffect } from 'react';
 import { DraggableBox } from './DraggableBox';
-import Xarrow from 'react-xarrows';
-import { Xwrapper } from 'react-xarrows';
+import Xarrow, { Xwrapper } from 'react-xarrows';
 import { parseMarkdown } from './ParseMarkdown';
 import { highlightColors } from './HighlightColors';
-// New imports for highlighting
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const LANGUAGES = [
+  { label: 'TypeScript/JS', value: 'typescript' },
+  { label: 'Python', value: 'python' },
   { label: 'C#', value: 'csharp' },
   { label: 'C++', value: 'cpp' },
-  { label: 'Python', value: 'python' },
-  { label: 'TypeScript/JS', value: 'typescript' },
   { label: 'Java', value: 'java' },
-  { label: 'Kotlin', value: 'kotlin' },
-  { label: 'HTML', value: 'html' },
-  { label: 'CSS', value: 'css' },
-  { label: 'Rust', value: 'rust' },
-  { label: 'C', value: 'c' }
+  { label: 'Rust', value: 'rust' }
 ];
 
 function App() {
-  const [parts, setParts] = useState<{
-    codeBlocks: string[],
-    textBlocks: string[],
-    headers: string[]
-  }>({
-    codeBlocks: [],
-    textBlocks: [],
-    headers: []
-  });
-
-  // State for the dropdown
+  const [steps, setSteps] = useState<any[]>([]);
+  const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [selectedLang, setSelectedLang] = useState('typescript');
 
   useEffect(() => {
-    const markdown = (window as any).markdownContent || '';
-    const parsed = parseMarkdown(markdown);
-    setParts(parsed);
+    // Initial load from VS Code injection
+    const initialMarkdown = (window as any).markdownContent;
+    if (initialMarkdown) {
+      const parsed = parseMarkdown(initialMarkdown);
+      setSteps([parsed]);
+    }
 
     const handleMessage = (event: MessageEvent) => {
       const { type, content } = event.data;
       if (type === 'newExplanation') {
         const parsed = parseMarkdown(content);
-        setParts(parsed);
+        setSteps(prev => {
+          const newSteps = [...prev, parsed];
+          // Auto-jump to the newly added slide
+          setCurrentStepIdx(newSteps.length - 1);
+          return newSteps;
+        });
       }
     };
+
     window.addEventListener('message', handleMessage);
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  return (
-    <div style={{
-      padding: '40px',
-      color: 'white',
-      fontSize: '14px',
-      flexDirection: 'column',
-      display: 'flex',
-      gap: '20px',
-      backgroundColor: '#1e1e1e',
-      minHeight: '100vh',
-    }}>
-      <h1 style={{ fontSize: '32px', marginBottom: '10px' }}>Code Explanation</h1>
+  // --- Navigation Logic ---
+  const nextStep = () => {
+    if (currentStepIdx < steps.length - 1) setCurrentStepIdx(currentStepIdx + 1);
+  };
 
-      {/* Dropdown Menu */}
-      <div style={{ marginBottom: '20px' }}>
-        <select 
-          value={selectedLang} 
-          onChange={(e) => setSelectedLang(e.target.value)}
-          style={{ 
-            padding: '8px', 
-            borderRadius: '4px', 
-            backgroundColor: '#333', 
-            color: 'white', 
-            border: '1px solid #555',
-            cursor: 'pointer' 
-          }}
-        >
-          {LANGUAGES.map(lang => (
-            <option key={lang.value} value={lang.value}>{lang.label}</option>
-          ))}
-        </select>
+  const prevStep = () => {
+    if (currentStepIdx > 0) setCurrentStepIdx(currentStepIdx - 1);
+  };
+
+  const removeCurrentStep = () => {
+    if (steps.length === 0) return;
+
+    const newSteps = [...steps];
+    newSteps.splice(currentStepIdx, 1);
+    
+    setSteps(newSteps);
+
+    // Adjust index so we don't point to an empty element
+    if (currentStepIdx >= newSteps.length && newSteps.length > 0) {
+      setCurrentStepIdx(newSteps.length - 1);
+    } else if (newSteps.length === 0) {
+      setCurrentStepIdx(0);
+    }
+  };
+
+  const currentStep = steps[currentStepIdx];
+
+  // Empty state if no slides left
+  if (steps.length === 0) {
+    return (
+      <div style={containerStyle}>
+        <div style={{ textAlign: 'center', marginTop: '100px' }}>
+          <h2>No explanations active.</h2>
+          <p>Highlight code in VS Code and use "Explain Code" to add slides.</p>
+        </div>
       </div>
+    );
+  }
 
-      <Xwrapper>
-        {/* 1. The Explanation Boxes */}
-        {parts.textBlocks.map((text, index) => (
-          <DraggableBox
-            key={`box-${index}`}
-            label={text}
-            id={`box${index}`}
-            color={highlightColors[index % highlightColors.length]}
-            topoffset={index * 210}
-            leftoffset={1000}
-          />
-        ))}
-
-        {/* 2. The Code Body */}
-        <div style={{ display: 'flex', flexDirection: 'column', zIndex: 1 }}>
-          {parts.codeBlocks.map((text, index) => (
-            <div
-              key={`p-${index}`}
-              id={`codeSpan${index}`} // ID stays on the wrapper for Xarrow
-              style={{
-                margin: '10px 0',
-                display: 'inline-block',
-                width: 'fit-content'
-              }}
+  return (
+    <div style={containerStyle}>
+      {/* Header UI */}
+      <div style={headerStyle}>
+        <div>
+          <h1 style={{ fontSize: '28px', margin: 0, color: '#61dafb' }}>Code Slideshow</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '5px' }}>
+            <span style={{ color: '#aaa', fontWeight: 'bold' }}>
+              STEP {currentStepIdx + 1} OF {steps.length}
+            </span>
+            <button 
+              onClick={removeCurrentStep}
+              style={deleteButtonStyle}
+              title="Remove this slide"
             >
-              <SyntaxHighlighter
-                language={selectedLang}
-                style={vscDarkPlus}
-                PreTag="div"
-                CodeTag="div"
-                customStyle={{
-                  margin: 0,
-                  padding: '10px',
-                  borderRadius: '4px',
-                  fontSize: '13px',
-                  lineHeight: '1.6',
-                  // Using your highlight color as a subtle border/glow
-                  border: `4px solid ${highlightColors[index % highlightColors.length]}`,
-                  backgroundColor: '#2d2d2d' 
-                }}
-              >
-                {text}
-              </SyntaxHighlighter>
-            </div>
-          ))}
+              Remove Slide
+            </button>
+          </div>
         </div>
 
-        {/* 3. The Arrows */}
-        {parts.codeBlocks.map((_, index) => (
-          <Xarrow
-            key={`arrow-${index}`}
-            start={`codeSpan${index}`}
-            end={`box${index}`}
-            startAnchor="middle"
-            color={highlightColors[index % highlightColors.length]}
-            strokeWidth={2}
-            path="smooth"
-          />
-        ))}
-      </Xwrapper>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <select 
+            value={selectedLang} 
+            onChange={(e) => setSelectedLang(e.target.value)}
+            style={selectStyle}
+          >
+            {LANGUAGES.map(lang => (
+              <option key={lang.value} value={lang.value}>{lang.label}</option>
+            ))}
+          </select>
+
+          <div style={{ display: 'flex', gap: '5px' }}>
+            <button onClick={prevStep} disabled={currentStepIdx === 0} style={navButtonStyle}>
+              ← Previous
+            </button>
+            <button onClick={nextStep} disabled={currentStepIdx === steps.length - 1} style={navButtonStyle}>
+              Next →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <hr style={{ borderColor: '#333', margin: '20px 0' }} />
+
+      {/* Main Content with Transition Key */}
+      <div key={currentStepIdx} className="slide-transition" style={{ position: 'relative' }}>
+        <Xwrapper>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {currentStep.codeBlocks.map((text: string, index: number) => (
+              <div key={`code-${index}`} id={`codeSpan${index}`} style={{ width: 'fit-content', zIndex: 10 }}>
+                <SyntaxHighlighter
+                  language={selectedLang}
+                  style={vscDarkPlus}
+                  customStyle={{
+                    margin: 0,
+                    padding: '20px',
+                    borderRadius: '12px',
+                    border: `3px solid ${highlightColors[index % highlightColors.length]}`,
+                    backgroundColor: '#1a1a1a',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
+                  }}
+                >
+                  {text}
+                </SyntaxHighlighter>
+              </div>
+            ))}
+          </div>
+
+          {currentStep.textBlocks.map((text: string, index: number) => (
+            <DraggableBox
+              key={`box-${currentStepIdx}-${index}`}
+              label={text}
+              id={`box${index}`}
+              color={highlightColors[index % highlightColors.length]}
+              topoffset={index * 230 + 120}
+              leftoffset={700}
+            />
+          ))}
+
+          {currentStep.codeBlocks.map((_: any, index: number) => (
+            <Xarrow
+              key={`arrow-${currentStepIdx}-${index}`}
+              start={`codeSpan${index}`}
+              end={`box${index}`}
+              color={highlightColors[index % highlightColors.length]}
+              strokeWidth={3}
+              headSize={5}
+              path="smooth"
+              dashness={false}
+            />
+          ))}
+        </Xwrapper>
+      </div>
+
+      <style>{`
+        .slide-transition {
+          animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        button:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+        button:hover:not(:disabled) {
+          filter: brightness(1.2);
+        }
+      `}</style>
     </div>
   );
+}
+
+// --- Styles ---
+
+const containerStyle: React.CSSProperties = {
+  padding: '40px',
+  color: 'white',
+  backgroundColor: '#1e1e1e',
+  minHeight: '100vh',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+};
+
+const headerStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'flex-start',
+  marginBottom: '10px'
+};
+
+const navButtonStyle: React.CSSProperties = {
+  padding: '10px 20px',
+  backgroundColor: '#007acc',
+  color: 'white',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  fontWeight: 'bold',
+  transition: '0.2s'
+};
+
+const deleteButtonStyle: React.CSSProperties = {
+  padding: '4px 12px',
+  backgroundColor: 'transparent',
+  color: '#ff4d4d',
+  border: '1px solid #ff4d4d',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontSize: '11px',
+  textTransform: 'uppercase',
+  fontWeight: 'bold'
+};
+
+const selectStyle: React.CSSProperties = {
+  padding: '10px',
+  borderRadius: '6px',
+  backgroundColor: '#2d2d2d',
+  color: 'white',
+  border: '1px solid #444',
+  cursor: 'pointer'
 };
 
 export default App;
