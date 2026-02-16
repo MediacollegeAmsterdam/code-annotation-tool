@@ -11,6 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         const selection = editor.selection;
         const selectedText = editor.document.getText(selection);
+        const languageId = editor.document.languageId;
 
         if (selectedText) {
             await vscode.window.withProgress({
@@ -18,15 +19,15 @@ export function activate(context: vscode.ExtensionContext) {
                 title: "Generating Visual Explanation...",
                 cancellable: false
             }, async () => {
-                const markdown = await explainCodeInMarkdown(selectedText);
+                const markdown = await explainCodeInMarkdown(selectedText, languageId);
                 
                 if (currentPanel) {
                     // If panel exists, send a message to append a new step
                     currentPanel.reveal(vscode.ViewColumn.Active);
-                    currentPanel.webview.postMessage({ type: 'newExplanation', content: markdown });
+                    currentPanel.webview.postMessage({ type: 'newExplanation', content: markdown, language: languageId });
                 } else {
                     // Otherwise, create the panel for the first time
-                    showExplanationWebview(context, markdown);
+                    showExplanationWebview(context, markdown, languageId);
                 }
             });
         } else {
@@ -37,7 +38,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(disposable);
 }
 
-async function explainCodeInMarkdown(code: string): Promise<string> {
+async function explainCodeInMarkdown(code: string, languageId: string): Promise<string> {
     try {
         const models = await vscode.lm.selectChatModels({ family: 'gpt-4' }); 
         const model = models[0] || (await vscode.lm.selectChatModels({}))[0];
@@ -48,6 +49,11 @@ async function explainCodeInMarkdown(code: string): Promise<string> {
             vscode.LanguageModelChatMessage.User(
                 `Explain this code step-by-step for a beginner. 
                 Use Markdown. Each step should have one code block and one explanation.
+                make sure there are no more codeblocks than explanations and no more explanations than codeblocks.
+                The explanation should be concise and directly related to the code block.
+                the explanations should never contain any bold or italic text, they should be straightforward and to the point and have no whitespace between them.
+                The code should be broken down into logical sections, each with its own explanation.
+                Do not include any additional commentary or information beyond the code and its explanation. 
                 Format: 
                 ### Title
                 \`\`\`language
@@ -72,11 +78,11 @@ async function explainCodeInMarkdown(code: string): Promise<string> {
     }
 }
 
-function showExplanationWebview(context: vscode.ExtensionContext, initialContent: string) {
+function showExplanationWebview(context: vscode.ExtensionContext, initialContent: string, languageId: string) {
     currentPanel = vscode.window.createWebviewPanel(
         'codeExplanation',
         'Code Explanation Slides',
-        vscode.ViewColumn.Beside,
+        vscode.ViewColumn.Active,
         {
             enableScripts: true,
             retainContextWhenHidden: true,
@@ -94,11 +100,11 @@ function showExplanationWebview(context: vscode.ExtensionContext, initialContent
         );
         return `src="${fileUri}"`;
     });
-
+    console.log(languageId);
     // Inject Initial Data
     html = html.replace(
         '</body>',
-        `<script>window.markdownContent = ${JSON.stringify(initialContent)};</script></body>`
+        `<script>window.markdownContent = ${JSON.stringify(initialContent)}; window.detectedLanguage = ${JSON.stringify(languageId)};</script></body>`
     );
 
     currentPanel.webview.html = html;

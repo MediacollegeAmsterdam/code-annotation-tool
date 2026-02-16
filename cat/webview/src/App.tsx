@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { DraggableBox } from './DraggableBox';
 import Xarrow, { Xwrapper } from 'react-xarrows';
 import { parseMarkdown } from './ParseMarkdown';
@@ -20,23 +20,30 @@ const LANGUAGES = [
 function App() {
   const [steps, setSteps] = useState<any[]>([]);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
-  const [selectedLang, setSelectedLang] = useState('typescript');
+  const [slideLanguages, setSlideLanguages] = useState<string[]>([]); // per-slide language
+  // Store box positions per slide: { [slideIdx]: { [boxIdx]: {top: number, left: number} } }
+  const [boxPositions, setBoxPositions] = useState<{ [slideIdx: number]: { [boxIdx: number]: { top: number, left: number } } }>({});
+
+  // No longer needed: offsets are managed by boxPositions
+  // useLayoutEffect removed
 
   useEffect(() => {
     // Initial load from VS Code injection
     const initialMarkdown = (window as any).markdownContent;
+    const detectedLanguage = (window as any).detectedLanguage;
     if (initialMarkdown) {
       const parsed = parseMarkdown(initialMarkdown);
       setSteps([parsed]);
+      setSlideLanguages([detectedLanguage || 'typescript']);
     }
 
     const handleMessage = (event: MessageEvent) => {
-      const { type, content } = event.data;
+      const { type, content, language } = event.data;
       if (type === 'newExplanation') {
         const parsed = parseMarkdown(content);
         setSteps(prev => {
           const newSteps = [...prev, parsed];
-          // Auto-jump to the newly added slide
+          setSlideLanguages(langs => [...langs, language || 'typescript']);
           setCurrentStepIdx(newSteps.length - 1);
           return newSteps;
         });
@@ -73,6 +80,21 @@ function App() {
   };
 
   const currentStep = steps[currentStepIdx];
+  const currentLang = slideLanguages[currentStepIdx] || 'typescript';
+  // Helper: get box position for current slide/box
+  const getBoxPosition = (boxIdx: number) => {
+    return boxPositions[currentStepIdx]?.[boxIdx] || { top: boxIdx * 230 + 120, left: 700 };
+  };
+  // Handler: update box position for current slide/box
+  const updateBoxPosition = (boxIdx: number, top: number, left: number) => {
+    setBoxPositions(prev => ({
+      ...prev,
+      [currentStepIdx]: {
+        ...(prev[currentStepIdx] || {}),
+        [boxIdx]: { top, left }
+      }
+    }));
+  };
 
   // Empty state if no slides left
   if (steps.length === 0) {
@@ -107,9 +129,13 @@ function App() {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <select 
-            value={selectedLang} 
-            onChange={(e) => setSelectedLang(e.target.value)}
+          {/* Per-slide language selector */}
+          <select
+            value={currentLang}
+            onChange={e => {
+              const newLang = e.target.value;
+              setSlideLanguages(langs => langs.map((lang, idx) => idx === currentStepIdx ? newLang : lang));
+            }}
             style={selectStyle}
           >
             {LANGUAGES.map(lang => (
@@ -137,7 +163,7 @@ function App() {
             {currentStep.codeBlocks.map((text: string, index: number) => (
               <div key={`code-${index}`} id={`codeSpan${index}`} style={{ width: 'fit-content', zIndex: 10 }}>
                 <SyntaxHighlighter
-                  language={selectedLang}
+                  language={currentLang}
                   style={vscDarkPlus}
                   customStyle={{
                     margin: 0,
@@ -160,8 +186,9 @@ function App() {
               label={text}
               id={`box${index}`}
               color={highlightColors[index % highlightColors.length]}
-              topoffset={index * 230 + 120}
-              leftoffset={700}
+              topoffset={getBoxPosition(index).top}
+              leftoffset={getBoxPosition(index).left}
+              onPositionChange={(top: number, left: number) => updateBoxPosition(index, top, left)}
             />
           ))}
 
@@ -194,6 +221,9 @@ function App() {
         }
         button:hover:not(:disabled) {
           filter: brightness(1.2);
+        }
+        pre code {
+          background: transparent !important;
         }
       `}</style>
     </div>
