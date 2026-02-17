@@ -2,7 +2,77 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 
+// Queue state for explanation requests
+interface ExplanationRequest {
+    code: string;
+    languageId: string;
+    timestamp: number;
+}
+
+let explanationQueue: ExplanationRequest[] = [];
+let isProcessingQueue = false;
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
+
+function enqueueRequest(code: string, languageId: string): void {
+    explanationQueue.push({
+        code,
+        languageId,
+        timestamp: Date.now()
+    });
+}
+
+function dequeueRequest(): ExplanationRequest | undefined {
+    return explanationQueue.shift();
+}
+
+async function processQueue(context: vscode.ExtensionContext): Promise<void> {
+    // Prevent concurrent processing
+    if (isProcessingQueue) {
+        return;
+    }
+    
+    isProcessingQueue = true;
+    
+    // Capture initial queue size for progress tracking
+    const initialQueueSize = explanationQueue.length;
+    let processedCount = 0;
+    
+    while (explanationQueue.length > 0) {
+        const request = dequeueRequest();
+        if (!request) break;
+        
+        processedCount++;
+        const currentPosition = processedCount;
+        const totalRequests = initialQueueSize;
+        
+        const title = totalRequests > 1 
+            ? `Generating explanation ${currentPosition}/${totalRequests}...`
+            : "Generating Visual Explanation...";
+        
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title,
+            cancellable: false
+        }, async () => {
+            const markdown = await explainCodeInMarkdown(request);
+            
+            if (currentPanel) {
+                // If panel exists, send a message to append a new step
+                currentPanel.reveal(vscode.ViewColumn.Active);
+                currentPanel.webview.postMessage({ 
+                    type: 'newExplanation', 
+                    content: markdown, 
+                    language: request.languageId 
+                });
+            } else {
+                // Otherwise, create the panel for the first time
+                showExplanationWebview(context, markdown, request.languageId);
+            }
+        });
+    }
+    
+    isProcessingQueue = false;
+}
 
 export function activate(context: vscode.ExtensionContext) {
     const disposable = vscode.commands.registerCommand('cat.explainCode', async () => {
@@ -14,22 +84,11 @@ export function activate(context: vscode.ExtensionContext) {
         const languageId = editor.document.languageId;
 
         if (selectedText) {
-            await vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: "Generating Visual Explanation...",
-                cancellable: false
-            }, async () => {
-                const markdown = await explainCodeInMarkdown(selectedText, languageId);
-                
-                if (currentPanel) {
-                    // If panel exists, send a message to append a new step
-                    currentPanel.reveal(vscode.ViewColumn.Active);
-                    currentPanel.webview.postMessage({ type: 'newExplanation', content: markdown, language: languageId });
-                } else {
-                    // Otherwise, create the panel for the first time
-                    showExplanationWebview(context, markdown, languageId);
-                }
-            });
+            // Enqueue the request with captured context
+            enqueueRequest(selectedText, languageId);
+            
+            // Start processing the queue (no-op if already processing)
+            processQueue(context);
         } else {
             vscode.window.showInformationMessage("Please select some code first!");
         }
@@ -38,7 +97,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(disposable);
 }
 
-async function explainCodeInMarkdown(code: string, languageId: string): Promise<string> {
+async function explainCodeInMarkdown(request: ExplanationRequest): Promise<string> {
     try {
         const models = await vscode.lm.selectChatModels({ family: 'gpt-4' }); 
         const model = models[0] || (await vscode.lm.selectChatModels({}))[0];
@@ -62,7 +121,7 @@ async function explainCodeInMarkdown(code: string, languageId: string): Promise<
                 Explanation text here.
                 
                 Code:
-                ${code}`
+                ${request.code}`
             )
         ];
 

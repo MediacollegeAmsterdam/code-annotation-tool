@@ -1,20 +1,37 @@
 "use client";
 
-import React from "react";
-import { motion } from "framer-motion";
+import { useRef, useState, useEffect } from "react";
+import { motion, useMotionValue } from "framer-motion";
 import { useXarrow } from "react-xarrows";
 
-export const DraggableBox = ({ label, id, color, topoffset, leftoffset }: { label: string, id: string, color?: string, topoffset?: number, leftoffset?: number }) => {
+export const DraggableBox = ({ label, id, color, topoffset, leftoffset, onPositionChange }: { label: string, id: string, color?: string, topoffset?: number, leftoffset?: number, onPositionChange?: (top: number, left: number) => void }) => {
     const updateXarrow = useXarrow();
+    const boxRef = useRef<HTMLDivElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const x = useMotionValue(0);
+    const y = useMotionValue(0);
+
+    // Update arrows when position changes (e.g., from page swap or after drag)
+    useEffect(() => {
+        if (!isDragging) {
+            // Use a small delay to ensure DOM has updated
+            const timer = setTimeout(() => {
+                updateXarrow();
+            }, 0);
+            return () => clearTimeout(timer);
+        }
+    }, [topoffset, leftoffset, isDragging]);
 
     return (
         <motion.div
+            ref={boxRef}
             id={id}
             drag
-            dragElastic={0.2}
+            dragElastic={0}
             dragMomentum={false}
-            onDrag={updateXarrow}
             style={{
+                x,
+                y,
                 // Essential sizing and wrapping
                 width: "auto",
                 maxWidth: "250px",      // Prevents the box from going too wide
@@ -42,6 +59,32 @@ export const DraggableBox = ({ label, id, color, topoffset, leftoffset }: { labe
                 overflowWrap: "anywhere",
                 top: topoffset || 0,
                 left: leftoffset || 0
+            }}
+            onDragStart={() => setIsDragging(true)}
+            onDrag={updateXarrow}
+            onDragEnd={() => {
+                setIsDragging(false);
+                if (onPositionChange) {
+                    // Get current transform values
+                    const xVal = x.get();
+                    const yVal = y.get();
+                    
+                    // Calculate new position: original position + drag offset
+                    const newLeft = (leftoffset || 0) + xVal;
+                    const newTop = (topoffset || 0) + yVal;
+                    
+                    // Save the new position
+                    onPositionChange(newTop, newLeft);
+                    
+                    // Reset the motion values so next render starts fresh
+                    x.set(0);
+                    y.set(0);
+                    
+                    // Update arrows after motion values reset and DOM updates
+                    requestAnimationFrame(() => {
+                        updateXarrow();
+                    });
+                }
             }}
             whileTap={{ cursor: "grabbing", scale: 0.98 }}
         >

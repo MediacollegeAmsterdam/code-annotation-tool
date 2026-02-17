@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DraggableBox } from './DraggableBox';
 import Xarrow, { Xwrapper } from 'react-xarrows';
 import { parseMarkdown } from './ParseMarkdown';
@@ -22,7 +22,15 @@ function App() {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [slideLanguages, setSlideLanguages] = useState<string[]>([]); // per-slide language
   // Store box positions per slide: { [slideIdx]: { [boxIdx]: {top: number, left: number} } }
-  const [boxPositions, setBoxPositions] = useState<{ [slideIdx: number]: { [boxIdx: number]: { top: number, left: number } } }>({});
+  const [boxPositions, setBoxPositions] = useState<{ [slideIdx: number]: { [boxIdx: number]: { top: number, left: number } } }>(() => {
+    // Try to load from localStorage
+    try {
+      const saved = localStorage.getItem('cat_boxPositions');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   // No longer needed: offsets are managed by boxPositions
   // useLayoutEffect removed
@@ -53,6 +61,13 @@ function App() {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, []);
+
+  // Persist boxPositions to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('cat_boxPositions', JSON.stringify(boxPositions));
+    } catch {}
+  }, [boxPositions]);
 
   // --- Navigation Logic ---
   const nextStep = () => {
@@ -87,13 +102,20 @@ function App() {
   };
   // Handler: update box position for current slide/box
   const updateBoxPosition = (boxIdx: number, top: number, left: number) => {
-    setBoxPositions(prev => ({
-      ...prev,
-      [currentStepIdx]: {
-        ...(prev[currentStepIdx] || {}),
-        [boxIdx]: { top, left }
-      }
-    }));
+    setBoxPositions(prev => {
+      const updated = {
+        ...prev,
+        [currentStepIdx]: {
+          ...(prev[currentStepIdx] || {}),
+          [boxIdx]: { top, left }
+        }
+      };
+      // Save immediately to localStorage for persistence
+      try {
+        localStorage.setItem('cat_boxPositions', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
   };
 
   // Empty state if no slides left

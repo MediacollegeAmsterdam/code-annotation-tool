@@ -2,8 +2,8 @@
   "name": "cat",
   "displayName": "C.A.T.(Code Annotation Tool)",
   "description": "an extension that shows a webview with ai explanation of highlighted code with the click of a button",
-  "version": "0.2.0",
-  "author": "julien oving",
+  "version": "1.0.0",
+  "author": "Julien Oving",
   "publisher": "XRlabAI",
   "repository": {
     "url": "https://github.com/MediacollegeAmsterdam/code-annotation-tool"
@@ -21,7 +21,7 @@
     "commands": [
       {
         "command": "cat.explainCode",
-        "title": "Explain Code in a chart"
+        "title": "Explain code visually"
       }
     ],
     "menus": {

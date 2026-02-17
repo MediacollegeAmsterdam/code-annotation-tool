@@ -1,14 +1,46 @@
+# Development directories
 .vscode/**
 .vscode-test/**
+.claude/**
+.gemini/**
+.github/**
+.windsurf/**
 out/**
 node_modules/**
+
+# Source files (compiled to dist/)
 src/**
-.gitignore
-.yarnrc
+webview/src/**
+
+# Build configuration
 webpack.config.js
 vsc-extension-quickstart.md
 **/tsconfig.json
 **/eslint.config.mjs
+**/vitest.config.ts
+webview/package.json
+webview/package-lock.json
+package-lock.json
+
+# Development workflow
+openspec/**
+webview/openspec/**
+webview/TESTING.md
+
+# Webview build artifacts (only keep dist/)
+webview/node_modules/**
+
+# Previous builds
+*.vsix
+
+# Git files
+.gitignore
+.yarnrc
+
+# Test files
+**/.vscode-test.*
+
+# Source maps and TypeScript
 **/*.map
 **/*.ts
-**/.vscode-test.*
+!dist/**/*.ts
